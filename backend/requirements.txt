@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+surrealdb
+langgraph
+langchain
+langchain-openai
+python-dotenv
+

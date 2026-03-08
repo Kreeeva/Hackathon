@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-950 text-slate-100;
+}
+
+.panel {
+  @apply bg-slate-900/70 border border-slate-800 rounded-xl shadow-sm p-4 flex flex-col gap-3;
+}
+
+.panel-title {
+  @apply text-sm font-semibold uppercase tracking-wide text-slate-400;
+}
+
+.badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+.badge-low {
+  @apply badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/40;
+}
+
+.badge-medium {
+  @apply badge bg-amber-500/10 text-amber-400 border border-amber-500/40;
+}
+
+.badge-high {
+  @apply badge bg-rose-500/10 text-rose-400 border border-rose-500/40;
+}
+
+button.primary {
+  @apply inline-flex items-center justify-center rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-sky-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors;
+}
+
+button.secondary {
+  @apply inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors;
+}
+
