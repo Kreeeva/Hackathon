@@ -317,5 +317,6 @@ Frontend will be available at `http://localhost:5173`.
 
 These files are the main entry points for hacking on the fraud logic and orchestration during the hackathon.
 
-#   H a c k a t h o n  
+#   H a c k a t h o n 
+ 
  
