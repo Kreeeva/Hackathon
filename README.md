@@ -1,200 +1,428 @@
-## Agentic Auditor – LangChain × SurrealDB MVP
+# Agentic Auditor – Explainable Fraud Detection (LangChain × SurrealDB)
 
-Agentic Auditor is a hackathon-grade, explainable fraud detection prototype built on:
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-green)
+![SurrealDB](https://img.shields.io/badge/Database-SurrealDB-purple)
+![LangGraph](https://img.shields.io/badge/Agents-LangGraph-orange)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-- **Backend**: Python, FastAPI, LangChain, LangGraph
-- **Database**: SurrealDB (graph + transactions)
-- **Frontend**: React + Vite + TailwindCSS + React Flow
+Agentic Auditor is an **explainable fraud detection prototype** built using **LangChain agents, LangGraph orchestration, and SurrealDB graph queries**.
 
-The app runs deterministic SurrealDB queries to detect fraud motifs, then uses a constrained LLM to generate grounded explanations (no invented evidence), and persists alerts/cases back into SurrealDB.
+The system detects fraud patterns deterministically using graph queries and then generates **grounded explanations using an LLM**, ensuring that explanations never invent evidence.
 
----
+This project demonstrates a **modern AI system architecture** combining:
 
-### Backend structure
-
-Backend code lives in `backend/`:
-
-- `backend/main.py` – FastAPI application entrypoint
-- `backend/app/db.py` – SurrealDB async client, env-driven configuration
-- `backend/app/models.py` – Pydantic models and shared investigation state
-- `backend/app/queries.py` – SurrealDB fraud/graph queries
-- `backend/app/tools.py` – LangChain tool wrappers around the queries
-- `backend/app/graph.py` – LangGraph workflow (run_detections → score_risk → generate_explanation → persist_alert_case)
-- `backend/app/explain.py` – LLM-based explanation generation, strictly grounded in evidence
-- `backend/app/persist.py` – Alert/case creation + relations in SurrealDB
-- `backend/app/api.py` – FastAPI routes (`/health`, `/investigate`, `/feedback`)
-
-SurrealDB connection is configured via environment variables:
-
-- `SURREAL_URL`
-- `SURREAL_USER`
-- `SURREAL_PASS`
-- `SURREAL_NS`
-- `SURREAL_DB`
-
-The OpenAI LLM is configured via:
-
-- `OPENAI_API_KEY`
-- `LLM_MODEL` (defaults to `gpt-4o-mini`)
+* Graph databases
+* Agent orchestration
+* Deterministic detection
+* LLM reasoning
+* Interactive investigation UI
 
 ---
 
-### Frontend structure
+# System Architecture
 
-Frontend code lives in `frontend/`:
+```mermaid
+flowchart LR
 
-- `frontend/index.html` – Vite entry HTML
-- `frontend/vite.config.mts` – Vite React setup
-- `frontend/tailwind.config.cjs` + `frontend/postcss.config.cjs` – TailwindCSS config
-- `frontend/src/main.jsx` – React root
-- `frontend/src/App.jsx` – Main dashboard layout
-  - **Left panel**: transaction ID input + “Run investigation”
-  - **Center panel**: React Flow relationship graph
-  - **Right panel**: risk score, severity, explanations, evidence, alert/case IDs, analyst feedback
-- `frontend/src/GraphView.jsx` – Graph visualisation using React Flow
-- `frontend/src/api.js` – Small API client for `/health`, `/investigate`, `/feedback`
-- `frontend/src/index.css` – Tailwind base + dark dashboard styling
+User[Analyst / Dashboard]
 
-The frontend talks to the backend via:
+Frontend[React + Vite + Tailwind]
+API[FastAPI Backend]
 
-- `VITE_API_BASE_URL` (optional, defaults to `http://localhost:8001`)
+LangGraph[LangGraph Workflow]
 
----
+Tools[LangChain Detection Tools]
 
-### Deterministic fraud detection
+DB[(SurrealDB Graph Database)]
 
-Three core fraud motifs are implemented as SurrealDB queries, wrapped as LangChain tools and orchestrated by LangGraph:
+LLM[LLM Explanation Engine]
 
-- **Star pattern** (`detect_star_pattern`)  
-  Uses `sent_to` relation edges to find **source accounts** sending to many destinations in a recent time window.
-- **Circular flow** (`detect_circular_flow`)  
-  For the MVP, surfaces the known ring of accounts seeded in the dataset.
-- **Flagged association** (`detect_flagged_association`)  
-  Uses `linked_to_flag` edges to find accounts linked directly to confirmed fraud accounts.
+User --> Frontend
+Frontend --> API
 
-The LangGraph state includes:
+API --> LangGraph
 
-- `transaction_id`
-- `detections`
-- `risk_score`
-- `severity`
-- `evidence`
-- `explanation_short`
-- `explanation_long`
-- `alert_id`
-- `case_id`
-- `analyst_decision`
+LangGraph --> Tools
+Tools --> DB
 
-Scoring logic (deterministic):
+LangGraph --> LLM
 
-- Star pattern: **+30**
-- Circular flow: **+20**
-- Flagged association: **+25**
+LangGraph --> DB
+```
 
-Severity bands:
+Architecture layers:
 
-- `high` if score ≥ 50
-- `medium` if score ≥ 25
-- `low` otherwise
+| Layer               | Technology                           |
+| ------------------- | ------------------------------------ |
+| Frontend            | React + Vite + Tailwind + React Flow |
+| API                 | FastAPI                              |
+| Agent Orchestration | LangGraph                            |
+| Detection Logic     | SurrealDB Graph Queries              |
+| LLM Reasoning       | OpenAI                               |
+| Persistence         | SurrealDB                            |
 
 ---
 
-### LLM explanations (grounded)
+# Dashboard Preview
 
-Once deterministic detections are collected, the backend calls a constrained LLM:
+*(Add a screenshot once available)*
 
-- `backend/app/explain.py` (`generate_explanations`) receives **only structured evidence**, `risk_score`, and `severity`.
-- It must:
-  - Use only the evidence provided
-  - Mention pattern names and counts when relevant
-  - Avoid made-up entities, probabilities, or unsupported claims
-- It returns:
-  - `explanation_short`: one-sentence summary
-  - `explanation_long`: concise analyst-style narrative
+```
+docs/dashboard.png
+```
 
-These explanations, along with raw evidence, are returned in `/investigate` and persisted in `alert` and `case_record` records.
+```md
+![Dashboard](docs/dashboard.png)
+```
 
----
+Dashboard panels:
 
-### Alert and case persistence
+Left panel
 
-`backend/app/persist.py`:
+* Transaction input
+* Run investigation
 
-- Creates an **`alert`** record with:
-  - `transaction`
-  - `risk_score`
-  - `severity`
-  - `evidence`
-  - `explanation_short`
-  - `explanation_long`
-- Creates a **`case_record`** linked to the alert
-- Creates relations:
-  - `alert -> for_transaction -> transaction`
-  - `alert -> in_case -> case_record`
+Center panel
 
-Analyst feedback (`/feedback`) creates `analyst_feedback` records and links them to the case using `case_record -> has_feedback -> analyst_feedback`.
+* Graph relationships
+
+Right panel
+
+* Risk score
+* Evidence
+* LLM explanation
+* Alert + Case ID
+* Analyst feedback
 
 ---
 
-### API endpoints
+# Investigation Workflow
 
-Backend endpoints (served by FastAPI):
+```mermaid
+flowchart TD
 
-- **GET `/health`**  
-  Simple healthcheck. Returns `{"status": "ok"}` if backend is alive.
+Start[Investigation Request]
 
-- **POST `/investigate`**  
-  **Body**:
-  ```json
-  { "transaction_id": "transaction:txn_00001" }
-  ```
-  **Response**:
-  ```json
-  {
-    "state": {
-      "transaction_id": "...",
-      "detections": [...],
-      "risk_score": 75,
-      "severity": "high",
-      "evidence": [...],
-      "explanation_short": "...",
-      "explanation_long": "...",
-      "alert_id": "alert:...",
-      "case_id": "case_record:...",
-      "analyst_decision": null
-    },
-    "graph": {
-      "transaction": {...},
-      "source_account": "account:...",
-      "destination_account": "account:...",
-      "linked_flagged_accounts": [...],
-      "devices": [...],
-      "ips": [...]
-    }
-  }
-  ```
+Detect[Run Fraud Detection Queries]
 
-- **POST `/feedback`**  
-  **Body**:
-  ```json
-  {
-    "case_id": "case_record:...",
-    "decision": "confirmed_suspicious|false_positive|escalate",
-    "note": "optional free text"
-  }
-  ```
-  **Response**:
-  ```json
-  { "status": "ok", "feedback": { ... } }
-  ```
+Score[Compute Risk Score]
+
+Explain[Generate LLM Explanation]
+
+Persist[Persist Alert + Case]
+
+Return[Return Results to Dashboard]
+
+Start --> Detect
+Detect --> Score
+Score --> Explain
+Explain --> Persist
+Persist --> Return
+```
+
+Pipeline flow:
+
+```
+transaction
+   ↓
+graph detections
+   ↓
+risk scoring
+   ↓
+LLM explanation
+   ↓
+alert + case creation
+```
 
 ---
 
-### Environment variables
+# Fraud Detection Motifs
 
-Copy `.env.example` to `.env` (or export values in your shell) and adjust as needed:
+The system identifies fraud through deterministic graph queries.
 
-```bash
+## Star Pattern (Fan-out Transfers)
+
+One account sending funds to many destinations.
+
+```mermaid
+graph LR
+A(Source Account)
+
+B1(Account 1)
+B2(Account 2)
+B3(Account 3)
+B4(Account 4)
+
+A --> B1
+A --> B2
+A --> B3
+A --> B4
+```
+
+Score contribution:
+
+```
++30 risk score
+```
+
+---
+
+## Circular Flow
+
+Funds circulate between accounts to obscure origin.
+
+```mermaid
+graph LR
+A(Account A)
+B(Account B)
+C(Account C)
+D(Account D)
+
+A --> B
+B --> C
+C --> D
+D --> A
+```
+
+Score contribution:
+
+```
++20 risk score
+```
+
+---
+
+## Flagged Association
+
+Account connected to known fraud entities.
+
+```mermaid
+graph LR
+Fraud[Known Fraud Account]
+
+Suspect[Investigated Account]
+
+Fraud --> Suspect
+```
+
+Score contribution:
+
+```
++25 risk score
+```
+
+---
+
+# Risk Scoring
+
+Deterministic scoring model:
+
+| Pattern             | Score |
+| ------------------- | ----- |
+| Star pattern        | +30   |
+| Circular flow       | +20   |
+| Flagged association | +25   |
+
+Severity thresholds:
+
+| Score | Severity |
+| ----- | -------- |
+| ≥ 50  | High     |
+| ≥ 25  | Medium   |
+| < 25  | Low      |
+
+---
+
+# LangGraph State
+
+The investigation state contains:
+
+```
+transaction_id
+detections
+risk_score
+severity
+evidence
+explanation_short
+explanation_long
+alert_id
+case_id
+analyst_decision
+```
+
+---
+
+# Backend Structure
+
+Backend code lives in:
+
+```
+backend/
+```
+
+Key files:
+
+```
+backend/main.py
+FastAPI entrypoint
+```
+
+```
+backend/app/db.py
+SurrealDB async client
+```
+
+```
+backend/app/models.py
+Pydantic models
+```
+
+```
+backend/app/queries.py
+Fraud detection queries
+```
+
+```
+backend/app/tools.py
+LangChain tool wrappers
+```
+
+```
+backend/app/graph.py
+LangGraph workflow
+```
+
+```
+backend/app/explain.py
+LLM explanation generation
+```
+
+```
+backend/app/persist.py
+Alert and case persistence
+```
+
+```
+backend/app/api.py
+API routes
+```
+
+---
+
+# Frontend Structure
+
+Frontend code lives in:
+
+```
+frontend/
+```
+
+Files:
+
+```
+frontend/index.html
+frontend/vite.config.mts
+frontend/tailwind.config.cjs
+frontend/postcss.config.cjs
+```
+
+React application:
+
+```
+frontend/src/main.jsx
+frontend/src/App.jsx
+frontend/src/GraphView.jsx
+frontend/src/api.js
+frontend/src/index.css
+```
+
+---
+
+# API Endpoints
+
+## Health
+
+```
+GET /health
+```
+
+Response
+
+```json
+{
+ "status": "ok"
+}
+```
+
+---
+
+## Investigate
+
+```
+POST /investigate
+```
+
+Request
+
+```json
+{
+ "transaction_id": "transaction:txn_00001"
+}
+```
+
+Response
+
+```json
+{
+ "state": {
+   "transaction_id": "...",
+   "detections": [],
+   "risk_score": 75,
+   "severity": "high",
+   "evidence": [],
+   "explanation_short": "...",
+   "explanation_long": "...",
+   "alert_id": "alert:...",
+   "case_id": "case_record:...",
+   "analyst_decision": null
+ }
+}
+```
+
+---
+
+## Feedback
+
+```
+POST /feedback
+```
+
+Request
+
+```json
+{
+ "case_id": "case_record:...",
+ "decision": "confirmed_suspicious",
+ "note": "optional"
+}
+```
+
+Response
+
+```json
+{
+ "status": "ok"
+}
+```
+
+---
+
+# Environment Variables
+
+Copy `.env.example` to `.env`
+
+```
 SURREAL_URL=http://localhost:8000
 SURREAL_USER=root
 SURREAL_PASS=root
@@ -205,118 +433,187 @@ OPENAI_API_KEY=your-openai-api-key
 LLM_MODEL=gpt-4o-mini
 ```
 
-Frontend can optionally use:
+Frontend variable:
 
-```bash
+```
 VITE_API_BASE_URL=http://localhost:8001
 ```
 
-> **Note**: SurrealDB commonly listens on port `8000`. The instructions below start FastAPI on port `8001` to avoid conflicts.
-
 ---
 
-### Installing dependencies
+# Installation
 
-#### Backend (Python)
+## Backend
 
-From the project root:
-
-```bash
+```
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-#### Frontend (Node)
+Windows
 
-From the project root:
+```
+.venv\Scripts\activate
+```
 
-```bash
+---
+
+## Frontend
+
+```
 cd frontend
 npm install
 ```
 
 ---
 
-### Running the backend
+# Running the Backend
 
-1. Ensure **SurrealDB** is running and seeded with the synthetic fraud dataset:
-   - Namespace: `hackathon`
-   - Database: `agentic_auditor`
-   - Tables: `account`, `card`, `device`, `ip_address`, `merchant`, `transaction`, `fraud_pattern`, and relations like `sent_to`, `uses_device`, `uses_ip`, `linked_to_flag`
-2. Export or configure the environment variables from `.env.example`.
-3. Start the FastAPI app (on port 8001 to avoid clashing with SurrealDB):
-
-```bash
+```
 cd backend
 uvicorn main:app --reload --port 8001
 ```
 
-Backend base URL: `http://localhost:8001`
+Test endpoint
 
-You can verify it with:
-
-```bash
+```
 curl http://localhost:8001/health
 ```
 
 ---
 
-### Running the frontend
+# Running the Frontend
 
-1. Ensure the backend is running on `http://localhost:8001`.
-2. Optionally create `frontend/.env` with:
-
-```bash
-VITE_API_BASE_URL=http://localhost:8001
 ```
-
-3. Start the Vite dev server:
-
-```bash
 cd frontend
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:5173`.
+Open
+
+```
+http://localhost:5173
+```
 
 ---
 
-### Demo flow
+# Demo Flow
 
-1. Open the dashboard at `http://localhost:5173`.
-2. In the **left panel**, enter a transaction ID, e.g. a seeded one like:
-   - Star pattern around `account:acct_231`
-   - Circular flow ring among `account:acct_232`–`account:acct_236`
-   - Flagged association accounts linked to known fraud accounts
-3. Click **“Run investigation”**.
-4. The app will:
-   - Run deterministic SurrealDB queries for star pattern, circular flow, and flagged associations.
-   - Compute a risk score and severity.
-   - Call a constrained LLM to generate **short** and **long** explanations using only detected evidence.
-   - Persist an **alert** and **case_record**, and return their IDs.
-5. The **center panel** shows a small relationship graph:
-   - Source account → destination account
-   - Links to flagged accounts
-   - Shared device/IP nodes
-6. The **right panel** shows:
-   - Risk score + severity
-   - Human-readable explanations
-   - Structured evidence by motif
-   - Alert ID and Case ID
-   - Analyst feedback buttons: **Confirm suspicious**, **False positive**, **Escalate**
+1. Open dashboard
+
+```
+http://localhost:5173
+```
+
+2. Enter a seeded transaction ID
+
+Examples
+
+```
+account:acct_231
+```
+
+3. Click **Run Investigation**
+
+The system will:
+
+1. Run SurrealDB fraud queries
+2. Calculate risk score
+3. Generate LLM explanation
+4. Persist alert + case
+5. Display relationship graph
+
+Right panel shows:
+
+* Risk score
+* severity
+* explanation
+* evidence
+* alert ID
+* case ID
+* analyst feedback
 
 ---
 
-### Where key logic lives
+# Design Decisions & Tradeoffs
 
-- **LangGraph workflow**: `backend/app/graph.py`  
-  (`workflow` object, nodes: `run_detections`, `score_risk`, `generate_explanation`, `persist_alert_case`)
-- **SurrealDB queries**: `backend/app/queries.py`
+## Deterministic Detection First
 
-These files are the main entry points for hacking on the fraud logic and orchestration during the hackathon.
+Fraud patterns are detected with **explicit graph queries**, not ML models.
 
-#   H a c k a t h o n 
- 
- 
+Advantages:
+
+* Explainable
+* Auditable
+* Deterministic behavior
+* No hallucinated risk signals
+
+This mirrors many **real-world financial compliance systems**.
+
+---
+
+## LLM Used Only for Explanation
+
+LLMs are **not used for fraud detection**.
+
+They are only used to transform structured evidence into analyst-readable explanations.
+
+Benefits:
+
+* Prevents hallucinated fraud signals
+* Keeps detection logic auditable
+* Improves analyst productivity
+
+---
+
+## Graph Database vs Relational DB
+
+Fraud detection often requires identifying:
+
+* transaction networks
+* shared devices
+* shared IPs
+* circular flows
+
+Graph databases make these patterns **far easier to query**.
+
+---
+
+## Agent Workflow with LangGraph
+
+LangGraph provides:
+
+* explicit workflow state
+* deterministic pipeline
+* easy debugging
+
+Pipeline nodes:
+
+```
+run_detections
+score_risk
+generate_explanation
+persist_alert_case
+```
+
+---
+
+# Future Improvements
+
+Potential production extensions:
+
+* Real-time fraud detection via Kafka streams
+* Graph embeddings for anomaly detection
+* ML risk scoring models
+* Investigator case management workflows
+* Analyst feedback loop for model retraining
+* Multi-hop graph traversal detection
+* Device fingerprinting signals
+
+---
+
+# License
+
+MIT
